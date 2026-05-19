@@ -1,0 +1,637 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>综合运营看板</title>
+<script src="echarts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:#f0f2f5;color:#333;min-height:100vh}
+
+/* 一级导航 */
+.top-header{background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:20px 24px;text-align:center}
+.top-header h1{font-size:26px;font-weight:600;margin-bottom:14px}
+.top-nav{display:flex;gap:16px;justify-content:center}
+.top-btn{padding:12px 36px;border:2px solid rgba(255,255,255,.4);border-radius:10px;background:rgba(255,255,255,.1);color:#fff;font-size:16px;cursor:pointer;transition:all .3s;font-weight:500}
+.top-btn:hover{background:rgba(255,255,255,.25)}
+.top-btn.active-du{background:#1a73e8;border-color:#1a73e8;color:#fff}
+.top-btn.active-yy{background:#0f9d58;border-color:#0f9d58;color:#fff}
+
+/* 看板容器 */
+.board{display:none;padding:0}
+.board.active{display:block}
+
+/* 二级导航 */
+.sub-header{padding:16px 24px 0;text-align:center}
+.sub-nav{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.sub-btn{padding:9px 22px;border:2px solid;border-radius:8px;background:#fff;font-size:14px;cursor:pointer;transition:all .3s}
+.sub-btn.du{border-color:#1a73e8;color:#1a73e8}
+.sub-btn.du:hover,.sub-btn.du.active{background:#1a73e8;color:#fff}
+.sub-btn.yy{border-color:#0f9d58;color:#0f9d58}
+.sub-btn.yy:hover,.sub-btn.yy.active{background:#0f9d58;color:#fff}
+
+/* 区块 */
+.section{display:none;padding:24px;max-width:1400px;margin:0 auto}
+.section.active{display:block}
+
+/* 卡片 */
+.cards-row{display:grid;gap:16px;margin-bottom:24px}
+.cards-row.c5{grid-template-columns:repeat(5,1fr)}
+.cards-row.c4{grid-template-columns:repeat(4,1fr)}
+.cards-row.c3{grid-template-columns:repeat(3,1fr)}
+.card{background:#fff;border-radius:12px;padding:20px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08);transition:transform .2s}
+.card:hover{transform:translateY(-3px)}
+.card .num{font-size:34px;font-weight:700;margin:8px 0}
+.card .label{font-size:13px;color:#666}
+.card.c-blue .num{color:#1a73e8}
+.card.c-green .num{color:#34a853}
+.card.c-orange .num{color:#fbbc04}
+.card.c-red .num{color:#ea4335}
+.card.c-purple .num{color:#9c27b0}
+.card.c-teal .num{color:#009688}
+.card.c-indigo .num{color:#3f51b5}
+
+/* 图表 */
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.chart-box{background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);height:350px}
+
+/* 筛选 */
+.filter-row{display:flex;gap:8px;margin-bottom:16px;justify-content:center;flex-wrap:wrap}
+.filter-btn{padding:8px 18px;border:1px solid #ddd;border-radius:20px;background:#fff;cursor:pointer;font-size:13px;transition:all .2s;white-space:nowrap}
+.filter-btn:hover{border-color:#1a73e8;color:#1a73e8}
+.filter-btn.active-du{background:#1a73e8;color:#fff;border-color:#1a73e8}
+.filter-btn.active-yy{background:#0f9d58;color:#fff;border-color:#0f9d58}
+
+/* 表格 */
+.table-wrap{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:600px}
+th{background:#f8f9fa;padding:13px 12px;text-align:left;font-size:13px;color:#555;border-bottom:2px solid #e8eaed;white-space:nowrap}
+td{padding:11px 12px;border-bottom:1px solid #f0f0f0;font-size:13px}
+tr:hover td{background:#f8f9fa}
+tr.clickable{cursor:pointer}
+.tag{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:500}
+.tag-green{background:#e6f4ea;color:#34a853}
+.tag-blue{background:#e8f0fe;color:#1a73e8}
+.tag-orange{background:#fef7e0;color:#f9ab00}
+.tag-red{background:#fce8e6;color:#ea4335}
+.tag-purple{background:#f3e8fd;color:#9c27b0}
+.tag-gray{background:#f1f3f4;color:#5f6368}
+
+/* 弹窗 */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1000;justify-content:center;align-items:center}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:16px;padding:32px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;position:relative}
+.modal h3{margin-bottom:16px}
+.modal.du h3{color:#1a73e8}
+.modal.yy h3{color:#0f9d58}
+.modal p{line-height:1.8;color:#555}
+.modal-close{position:absolute;top:12px;right:16px;font-size:24px;cursor:pointer;color:#999;background:none;border:none}
+.modal-close:hover{color:#333}
+
+@media(max-width:768px){.cards-row.c4,.cards-row.c5,.cards-row.c3{grid-template-columns:repeat(2,1fr)}.charts-row{grid-template-columns:1fr}.top-nav{flex-direction:column;align-items:center}}
+</style>
+</head>
+<body>
+
+<!-- ====== 一级导航 ====== -->
+<div class="top-header">
+  <h1>📊 综合运营看板</h1>
+  <div class="top-nav">
+    <button class="top-btn active-du" data-board="board-du">📋 任务督办看板</button>
+    <button class="top-btn" data-board="board-yy">📈 运营台账看板</button>
+  </div>
+</div>
+
+<!-- ====== 任务督办看板 ====== -->
+<div id="board-du" class="board active">
+  <div class="sub-header">
+    <div class="sub-nav">
+      <button class="sub-btn du active" data-section="sec-year">26年任务分解</button>
+      <button class="sub-btn du" data-section="sec-week">周例会任务</button>
+      <button class="sub-btn du" data-section="sec-month">月例会任务</button>
+    </div>
+  </div>
+
+  <!-- 26年任务分解 -->
+  <div id="sec-year" class="section active">
+    <div class="cards-row c4">
+      <div class="card c-blue"><div class="label">总任务</div><div class="num" id="year-total"></div></div>
+      <div class="card c-green"><div class="label">已完成</div><div class="num" id="year-done"></div></div>
+      <div class="card c-orange"><div class="label">进行中</div><div class="num" id="year-progress"></div></div>
+      <div class="card c-red"><div class="label">已逾期</div><div class="num" id="year-overdue"></div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-box" id="year-pie"></div>
+      <div class="chart-box" id="year-bar"></div>
+    </div>
+    <div class="filter-row" id="year-filters">
+      <button class="filter-btn active-du" data-filter="全部">全部</button>
+      <button class="filter-btn" data-filter="已完成">已完成</button>
+      <button class="filter-btn" data-filter="进行中">进行中</button>
+      <button class="filter-btn" data-filter="已逾期">已逾期</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th style="width:5%">#</th><th style="width:35%">工作任务</th><th style="width:15%">状态</th><th style="width:20%">计划完成时间</th><th style="width:25%">分类</th></tr></thead><tbody id="year-tbody"></tbody></table></div>
+  </div>
+
+  <!-- 周例会任务 -->
+  <div id="sec-week" class="section">
+    <div class="cards-row c4">
+      <div class="card c-blue"><div class="label">总任务</div><div class="num" id="week-total"></div></div>
+      <div class="card c-green"><div class="label">已完成</div><div class="num" id="week-done"></div></div>
+      <div class="card c-orange"><div class="label">进行中</div><div class="num" id="week-progress"></div></div>
+      <div class="card c-red"><div class="label">已逾期</div><div class="num" id="week-overdue"></div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-box" id="week-pie"></div>
+      <div class="chart-box" id="week-bar"></div>
+    </div>
+    <div class="filter-row" id="week-filters">
+      <button class="filter-btn active-du" data-filter="全部">全部</button>
+      <button class="filter-btn" data-filter="已完成">已完成</button>
+      <button class="filter-btn" data-filter="进行中">进行中</button>
+      <button class="filter-btn" data-filter="已逾期">已逾期</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th style="width:5%">#</th><th style="width:30%">任务内容</th><th style="width:12%">状态</th><th style="width:15%">计划完成时间</th><th style="width:12%">负责人</th><th style="width:26%">细化措施</th></tr></thead><tbody id="week-tbody"></tbody></table></div>
+  </div>
+
+  <!-- 月例会任务 -->
+  <div id="sec-month" class="section">
+    <div class="cards-row c4">
+      <div class="card c-blue"><div class="label">总任务</div><div class="num" id="month-total"></div></div>
+      <div class="card c-green"><div class="label">已完成</div><div class="num" id="month-done"></div></div>
+      <div class="card c-orange"><div class="label">进行中</div><div class="num" id="month-progress"></div></div>
+      <div class="card c-red"><div class="label">已逾期</div><div class="num" id="month-overdue"></div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-box" id="month-pie"></div>
+      <div class="chart-box" id="month-bar"></div>
+    </div>
+    <div class="filter-row" id="month-filters">
+      <button class="filter-btn active-du" data-filter="全部">全部</button>
+      <button class="filter-btn" data-filter="已完成">已完成</button>
+      <button class="filter-btn" data-filter="进行中">进行中</button>
+      <button class="filter-btn" data-filter="已逾期">已逾期</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th style="width:5%">#</th><th style="width:30%">任务内容</th><th style="width:12%">状态</th><th style="width:15%">计划完成时间</th><th style="width:12%">责任部门</th><th style="width:26%">细化措施</th></tr></thead><tbody id="month-tbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ====== 运营台账看板 ====== -->
+<div id="board-yy" class="board">
+  <div class="sub-header">
+    <div class="sub-nav">
+      <button class="sub-btn yy active" data-section="sec-jx">检修清单</button>
+      <button class="sub-btn yy" data-section="sec-qx">缺陷清单</button>
+      <button class="sub-btn yy" data-section="sec-fx">服务风险</button>
+      <button class="sub-btn yy" data-section="sec-xq">需求清单</button>
+      <button class="sub-btn yy" data-section="sec-zt">运营主题</button>
+    </div>
+  </div>
+
+  <!-- 检修清单 -->
+  <div id="sec-jx" class="section active">
+    <div class="cards-row c5">
+      <div class="card c-blue"><div class="label">总任务</div><div class="num" id="jx-total"></div></div>
+      <div class="card c-green"><div class="label">南中心通过</div><div class="num" id="jx-ns"></div></div>
+      <div class="card c-teal"><div class="label">北中心通过</div><div class="num" id="jx-bt"></div></div>
+      <div class="card c-orange"><div class="label">南中心其他</div><div class="num" id="jx-no"></div></div>
+      <div class="card c-purple"><div class="label">北中心其他</div><div class="num" id="jx-bo"></div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-box" id="jx-pie-n"></div>
+      <div class="chart-box" id="jx-pie-b"></div>
+    </div>
+    <div class="filter-row" id="jx-filters">
+      <button class="filter-btn active-yy" data-filter="全部">全部</button>
+      <button class="filter-btn" data-filter="南中心通过">南中心通过</button>
+      <button class="filter-btn" data-filter="南中心不通过">南中心不通过</button>
+      <button class="filter-btn" data-filter="南中心其他">南中心其他</button>
+      <button class="filter-btn" data-filter="北中心通过">北中心通过</button>
+      <button class="filter-btn" data-filter="北中心不通过">北中心不通过</button>
+      <button class="filter-btn" data-filter="北中心其他">北中心其他</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>任务项</th><th>南中心验证结果</th><th>北中心验证结果</th></tr></thead><tbody id="jx-tbody"></tbody></table></div>
+  </div>
+
+  <!-- 缺陷清单 -->
+  <div id="sec-qx" class="section">
+    <div class="cards-row c4">
+      <div class="card c-blue"><div class="label">总任务</div><div class="num" id="qx-total"></div></div>
+      <div class="card c-green"><div class="label">已解决</div><div class="num" id="qx-done"></div></div>
+      <div class="card c-orange"><div class="label">待发版</div><div class="num" id="qx-pend"></div></div>
+      <div class="card c-purple"><div class="label">需求转出</div><div class="num" id="qx-out"></div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-box" id="qx-pie"></div>
+      <div class="chart-box" id="qx-bar"></div>
+    </div>
+    <div class="filter-row" id="qx-filters">
+      <button class="filter-btn active-yy" data-filter="全部">全部</button>
+      <button class="filter-btn" data-filter="已解决">已解决</button>
+      <button class="filter-btn" data-filter="待发版">待发版</button>
+      <button class="filter-btn" data-filter="排查中">排查中</button>
+      <button class="filter-btn" data-filter="需求转出">需求转出</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>问题名称</th><th>解决状态</th><th>渠道</th><th>问题类型</th></tr></thead><tbody id="qx-tbody"></tbody></table></div>
+  </div>
+
+  <!-- 服务风险 -->
+  <div id="sec-fx" class="section">
+    <div class="cards-row c3">
+      <div class="card c-blue"><div class="label">总任务</div><div class="num" id="fx-total"></div></div>
+      <div class="card c-green"><div class="label">已解决</div><div class="num" id="fx-done"></div></div>
+      <div class="card c-orange"><div class="label">进行中</div><div class="num" id="fx-prog"></div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-box" id="fx-pie"></div>
+      <div class="chart-box" id="fx-bar"></div>
+    </div>
+    <div class="filter-row" id="fx-filters">
+      <button class="filter-btn active-yy" data-filter="全部">全部</button>
+      <button class="filter-btn" data-filter="已解决">已解决</button>
+      <button class="filter-btn" data-filter="进行中">进行中</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>问题名称</th><th>解决状态</th><th>服务事件分类</th></tr></thead><tbody id="fx-tbody"></tbody></table></div>
+  </div>
+
+  <!-- 需求清单 -->
+  <div id="sec-xq" class="section">
+    <div class="cards-row c4">
+      <div class="card c-blue"><div class="label">总任务</div><div class="num" id="xq-total"></div></div>
+      <div class="card c-green"><div class="label">技术评估</div><div class="num" id="xq-tech"></div></div>
+      <div class="card c-orange"><div class="label">文档编制</div><div class="num" id="xq-doc"></div></div>
+      <div class="card c-purple"><div class="label">研发中</div><div class="num" id="xq-dev"></div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-box" id="xq-pie"></div>
+      <div class="chart-box" id="xq-bar"></div>
+    </div>
+    <div class="filter-row" id="xq-filters">
+      <button class="filter-btn active-yy" data-filter="全部">全部</button>
+      <button class="filter-btn" data-filter="技术评估中">技术评估中</button>
+      <button class="filter-btn" data-filter="研发中">研发中</button>
+      <button class="filter-btn" data-filter="文档编制">文档编制</button>
+      <button class="filter-btn" data-filter="方案审核">方案审核</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>场景名称</th><th>完成情况</th><th>渠道</th></tr></thead><tbody id="xq-tbody"></tbody></table></div>
+  </div>
+
+  <!-- 运营主题 -->
+  <div id="sec-zt" class="section">
+    <div class="cards-row c3">
+      <div class="card c-blue"><div class="label">总主题</div><div class="num" id="zt-total"></div></div>
+      <div class="card c-green"><div class="label">已完成</div><div class="num" id="zt-done"></div></div>
+      <div class="card c-orange"><div class="label">进行中</div><div class="num" id="zt-prog"></div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-box" id="zt-pie"></div>
+      <div class="chart-box" id="zt-bar"></div>
+    </div>
+    <div class="filter-row" id="zt-filters">
+      <button class="filter-btn active-yy" data-filter="全部">全部</button>
+      <button class="filter-btn" data-filter="已完成">已完成</button>
+      <button class="filter-btn" data-filter="进行中">进行中</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>当月主题</th><th>进度</th><th>月份</th></tr></thead><tbody id="zt-tbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- 弹窗 -->
+<div class="modal-overlay" id="modal">
+  <div class="modal" id="modal-box">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <h3 id="modal-title"></h3>
+    <p id="modal-body"></p>
+  </div>
+</div>
+
+<script>
+// ========== 工具函数 ==========
+const TC={'已完成':'tag-green','进行中':'tag-orange','已逾期':'tag-red','通过':'tag-green','不通过':'tag-red','其他':'tag-gray','已解决':'tag-green','待发版':'tag-orange','排查中':'tag-blue','需求转出':'tag-purple','技术评估中':'tag-blue','研发中':'tag-purple','文档编制':'tag-orange','方案审核':'tag-blue'};
+function tc(s){return TC[s]||'tag-gray'}
+
+function showModal(title,body,type){
+  const box=document.getElementById('modal-box');
+  box.className='modal '+type;
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-body').textContent=body||'暂无描述';
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal(){document.getElementById('modal').classList.remove('show')}
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal()});
+
+function initChart(el){return echarts.init(el)}
+
+function makePie(id,title,data){
+  var c=initChart(document.getElementById(id));
+  c.setOption({title:{text:title,left:'center',textStyle:{fontSize:15}},tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)'},legend:{bottom:5,textStyle:{fontSize:11}},series:[{type:'pie',radius:['35%','65%'],center:['50%','45%'],data:data,label:{show:false},emphasis:{label:{show:true,fontSize:13}}}]});
+  return c;
+}
+
+function makeBar(id,title,xArr,yArr,color){
+  var c=initChart(document.getElementById(id));
+  c.setOption({title:{text:title,left:'center',textStyle:{fontSize:15}},tooltip:{trigger:'axis'},grid:{left:'3%',right:'8%',bottom:'3%',containLabel:true},xAxis:{type:'category',data:xArr,axisLabel:{rotate:30,interval:0,fontSize:11}},yAxis:{type:'value'},series:[{type:'bar',data:yArr,itemStyle:{color:color||'#1a73e8',borderRadius:[4,4,0,0]},barWidth:'60%'}]});
+  return c;
+}
+
+function renderTable(tbodyId,data,cols,descKey,type){
+  var tbody=document.getElementById(tbodyId);
+  tbody.innerHTML='';
+  data.forEach(function(d,i){
+    var tr=document.createElement('tr');
+    tr.className='clickable';
+    var html='<td>'+(i+1)+'</td><td>'+d.name+'</td>';
+    cols.forEach(function(c){html+='<td><span class="tag '+tc(d[c]||'')+'">'+(d[c]||'')+'</span></td>'});
+    tr.innerHTML=html;
+    tr.addEventListener('click',function(){showModal(d.name,d[descKey]||d.desc||d.detail||'暂无描述',type)});
+    tbody.appendChild(tr);
+  });
+}
+
+function setActive(container,cls){
+  var btns=document.querySelectorAll('#'+container+' .filter-btn');
+  btns.forEach(function(b){b.addEventListener('click',function(){
+    btns.forEach(function(x){x.classList.remove('active-du');x.classList.remove('active-yy')});
+    this.classList.add(cls);
+  })});
+}
+
+// ========== 一级导航 ==========
+document.querySelectorAll('.top-btn').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.top-btn').forEach(function(b){b.classList.remove('active-du');b.classList.remove('active-yy')});
+    document.querySelectorAll('.board').forEach(function(s){s.classList.remove('active')});
+    var boardId=this.dataset.board;
+    this.classList.add(boardId==='board-du'?'active-du':'active-yy');
+    document.getElementById(boardId).classList.add('active');
+    setTimeout(resizeAll,100);
+  });
+});
+
+// ========== 二级导航 ==========
+document.querySelectorAll('.sub-btn').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    var parent=this.closest('.board');
+    parent.querySelectorAll('.sub-btn').forEach(function(b){b.classList.remove('active')});
+    parent.querySelectorAll('.section').forEach(function(s){s.classList.remove('active')});
+    this.classList.add('active');
+    document.getElementById(this.dataset.section).classList.add('active');
+    setTimeout(resizeAll,100);
+  });
+});
+
+function resizeAll(){
+  document.querySelectorAll('.chart-box').forEach(function(el){
+    var inst=echarts.getInstanceByDom(el);
+    if(inst)inst.resize();
+  });
+}
+window.addEventListener('resize',resizeAll);
+
+// ========== 模拟数据 ==========
+var yearData=[
+  {name:'新一代核心系统架构升级',status:'进行中',planDate:'2026-06-30',category:'系统建设',desc:'完成新一代核心系统架构设计评审，推进开发环境搭建与数据迁移方案验证。'},
+  {name:'数据中台一期建设',status:'已完成',planDate:'2026-03-15',category:'数据治理',desc:'完成数据中台一期建设，实现主要业务系统数据接入与标准化处理。'},
+  {name:'客户画像精准营销平台',status:'进行中',planDate:'2026-08-20',category:'营销系统',desc:'构建客户360度画像，支撑精准营销策略制定与触达。'},
+  {name:'风控模型迭代优化',status:'已逾期',planDate:'2026-04-30',category:'风控管理',desc:'基于新数据源对风控模型进行迭代优化，提升模型预测准确率。'},
+  {name:'移动端APP 5.0版本发布',status:'已完成',planDate:'2026-02-28',category:'渠道建设',desc:'完成移动端APP 5.0版本功能开发与上线发布。'},
+  {name:'信息安全等保三级认证',status:'进行中',planDate:'2026-09-30',category:'安全管理',desc:'推进信息安全等级保护三级认证相关工作，完成自查整改。'},
+  {name:'运维自动化平台建设',status:'已逾期',planDate:'2026-05-15',category:'运维管理',desc:'建设运维自动化平台，实现日常运维操作自动化与标准化。'},
+  {name:'区块链技术应用探索',status:'进行中',planDate:'2026-12-31',category:'创新研究',desc:'探索区块链技术在供应链金融场景的应用可行性。'},
+  {name:'AI智能客服系统上线',status:'已完成',planDate:'2026-01-31',category:'智能服务',desc:'AI智能客服系统完成测试并正式上线运行。'},
+  {name:'灾备中心建设',status:'进行中',planDate:'2026-11-30',category:'基础设施',desc:'推进异地灾备中心建设，完成机房选址与设备采购。'},
+  {name:'RPA流程机器人部署',status:'进行中',planDate:'2026-07-31',category:'效率提升',desc:'在财务、人力等场景部署RPA流程机器人，提升工作效率。'},
+  {name:'微服务架构改造',status:'已逾期',planDate:'2026-03-31',category:'系统建设',desc:'对遗留系统进行微服务架构改造，提升系统可扩展性。'}
+];
+
+var weekData=[
+  {name:'完成系统性能测试报告',status:'已完成',planDate:'2026-05-16',person:'张三',measures:'使用LoadRunner进行压力测试，生成详细性能分析报告'},
+  {name:'推进需求评审会议',status:'进行中',planDate:'2026-05-23',person:'李四',measures:'组织各业务部门召开需求评审会，确认需求优先级'},
+  {name:'修复线上紧急Bug',status:'已逾期',planDate:'2026-05-10',person:'王五',measures:'针对线上用户反馈的支付异常问题进行排查修复'},
+  {name:'完成数据库备份验证',status:'已完成',planDate:'2026-05-14',person:'赵六',measures:'验证全量备份与增量备份的恢复流程，确保数据可恢复'},
+  {name:'制定接口安全规范',status:'进行中',planDate:'2026-05-30',person:'张三',measures:'制定API接口安全规范文档，包括认证、授权、加密等要求'},
+  {name:'完成用户培训材料',status:'已完成',planDate:'2026-05-12',person:'李四',measures:'编写新用户操作手册与培训PPT'},
+  {name:'推进代码审查流程',status:'进行中',planDate:'2026-05-25',person:'王五',measures:'建立代码审查清单，推行GitLab MR审查机制'},
+  {name:'完成服务器扩容方案',status:'已逾期',planDate:'2026-05-08',person:'赵六',measures:'根据业务增长趋势制定服务器扩容方案与预算'}
+];
+
+var monthData=[
+  {name:'推进数字化转型战略落地',status:'进行中',planDate:'2026-06-30',dept:'信息技术部',measures:'制定数字化转型路线图，明确各阶段里程碑与考核指标'},
+  {name:'完成季度系统巡检',status:'已完成',planDate:'2026-04-30',dept:'运维管理部',measures:'对全部生产系统进行季度巡检，输出巡检报告与整改建议'},
+  {name:'供应商服务评估',status:'进行中',planDate:'2026-07-31',dept:'采购管理部',measures:'对主要IT供应商进行半年度服务质量评估'},
+  {name:'制定年度IT预算',status:'已逾期',planDate:'2026-03-31',dept:'财务部',measures:'结合业务规划制定年度IT预算方案'},
+  {name:'推进数据标准化工作',status:'进行中',planDate:'2026-08-31',dept:'数据管理部',measures:'建立数据标准管理体系，完成核心数据字典编制'},
+  {name:'完成网络安全演练',status:'已完成',planDate:'2026-05-10',dept:'安全管理部',measures:'组织红蓝对抗网络安全演练，检验应急响应能力'},
+  {name:'推进信创替代工作',status:'进行中',planDate:'2026-12-31',dept:'信息技术部',measures:'制定信创产品替代计划，分阶段推进软硬件国产化'},
+  {name:'建立IT服务管理体系',status:'已逾期',planDate:'2026-04-15',dept:'运维管理部',measures:'建立ITIL服务管理体系，完善服务流程与SLA指标'}
+];
+
+var jxData=[
+  {name:'核心交易系统年度检修',ns:'通过',nb:'通过',desc:'对核心交易系统进行年度全面检修，包括性能优化、安全加固、配置检查等'},
+  {name:'数据库集群巡检维护',ns:'通过',nb:'其他',desc:'对Oracle RAC集群进行全面巡检，检查归档日志、表空间使用情况'},
+  {name:'中间件版本升级',ns:'不通过',nb:'通过',desc:'将WebLogic中间件从12c升级至14c，完成兼容性测试'},
+  {name:'网络防火墙策略优化',ns:'通过',nb:'通过',desc:'梳理并优化防火墙访问控制策略，减少冗余规则'},
+  {name:'存储系统扩容',ns:'其他',nb:'通过',desc:'对SAN存储进行扩容，增加50TB可用容量'},
+  {name:'备份系统恢复演练',ns:'通过',nb:'不通过',desc:'执行季度备份恢复演练，验证备份数据完整性'},
+  {name:'负载均衡器配置调整',ns:'通过',nb:'通过',desc:'调整F5负载均衡策略，优化流量分发'},
+  {name:'日志系统迁移',ns:'不通过',nb:'其他',desc:'将日志系统从ELK迁移至新一代日志平台'}
+];
+
+var qxData=[
+  {name:'支付接口偶发超时',status:'已解决',channel:'工单',type:'性能问题',desc:'支付接口在高并发场景下偶发超时，经排查为数据库连接池配置不当导致'},
+  {name:'报表数据不准确',status:'待发版',channel:'邮件',type:'数据问题',desc:'月度财务报表中部分科目数据汇总不准确，需修复SQL聚合逻辑'},
+  {name:'用户登录异常',status:'已解决',channel:'电话',type:'功能缺陷',desc:'部分用户反馈无法正常登录，排查发现会话管理模块存在并发Bug'},
+  {name:'消息推送延迟',status:'排查中',channel:'工单',type:'性能问题',desc:'APP消息推送存在5-10分钟延迟，正在排查消息队列积压问题'},
+  {name:'文件上传失败',status:'需求转出',channel:'工单',type:'功能缺陷',desc:'大文件上传频繁失败，需优化分片上传机制'},
+  {name:'页面加载缓慢',status:'已解决',channel:'监控',type:'性能问题',desc:'首页加载时间超过8秒，经优化前端资源加载策略后降至2秒内'},
+  {name:'权限校验异常',status:'待发版',channel:'工单',type:'安全问题',desc:'部分接口权限校验逻辑存在漏洞，需增加角色权限双重校验'}
+];
+
+var fxData=[
+  {name:'客户投诉处理不及时',status:'已解决',category:'服务时效',reason:'工单分派流程不合理，已优化自动分派规则'},
+  {name:'系统响应时间超标',status:'进行中',category:'服务性能',reason:'数据库慢查询导致API响应时间超标，正在优化SQL'},
+  {name:'服务窗口人员不足',status:'已解决',category:'服务资源',reason:'高峰期服务窗口人手不足，已调整排班方案'},
+  {name:'数据同步延迟风险',status:'进行中',category:'数据服务',reason:'主备数据同步存在延迟，可能影响业务决策'},
+  {name:'第三方服务依赖风险',status:'已解决',category:'外部服务',reason:'关键第三方服务SLA不达标，已引入备用服务商'}
+];
+
+var xqData=[
+  {name:'智能推荐引擎',status:'技术评估中',channel:'业务部门',desc:'基于用户行为数据构建智能推荐引擎，提升用户活跃度和转化率'},
+  {name:'自动化对账平台',status:'研发中',channel:'财务部门',desc:'建设自动化对账平台，实现每日自动对账与异常预警'},
+  {name:'客户标签体系',status:'文档编制',channel:'数据部门',desc:'构建客户标签体系，支撑精准营销与差异化服务'},
+  {name:'统一消息中心',status:'研发中',channel:'技术部门',desc:'建设统一消息中心，整合短信、邮件、APP推送等渠道'},
+  {name:'运营数据驾驶舱',status:'方案审核',channel:'管理层',desc:'为管理层提供可视化运营数据驾驶舱，支持实时决策'},
+  {name:'智能风控引擎升级',status:'技术评估中',channel:'风控部门',desc:'升级智能风控引擎，引入机器学习模型提升风控能力'}
+];
+
+var ztData=[
+  {name:'提升系统可用性至99.99%',progress:'已完成',month:'2026-01',detail:'通过架构优化和容灾建设，系统可用性从99.95%提升至99.99%'},
+  {name:'降低运维成本20%',progress:'进行中',month:'2026-02',detail:'通过自动化运维和云原生改造，降低运维人力成本和硬件成本'},
+  {name:'用户满意度提升至95分',progress:'进行中',month:'2026-03',detail:'优化用户体验流程，减少用户投诉，提升NPS评分'},
+  {name:'数据治理体系建设',progress:'已完成',month:'2026-04',detail:'建立数据治理组织架构和制度体系，完成核心数据标准制定'},
+  {name:'DevOps效能提升',progress:'进行中',month:'2026-05',detail:'推进DevOps工具链建设，缩短发布周期，提升交付质量'},
+  {name:'零安全事件目标',progress:'进行中',month:'2026-05',detail:'加强安全体系建设，实现全年零重大安全事件目标'}
+];
+
+// ========== 渲染：任务督办板块 ==========
+function renderDU(prefix,data,colForBar,descKey){
+  var done=data.filter(function(d){return d.status==='已完成'}).length;
+  var prog=data.filter(function(d){return d.status==='进行中'}).length;
+  var over=data.filter(function(d){return d.status==='已逾期'}).length;
+  var total=data.length;
+  document.getElementById(prefix+'-total').textContent=total;
+  document.getElementById(prefix+'-done').textContent=done;
+  document.getElementById(prefix+'-progress').textContent=prog;
+  document.getElementById(prefix+'-overdue').textContent=over;
+
+  makePie(prefix+'-pie','任务状态分布',[
+    {value:done,name:'已完成',itemStyle:{color:'#34a853'}},
+    {value:prog,name:'进行中',itemStyle:{color:'#fbbc04'}},
+    {value:over,name:'已逾期',itemStyle:{color:'#ea4335'}}
+  ]);
+
+  var groups={};
+  data.forEach(function(d){var k=d[colForBar]||'未分配';groups[k]=(groups[k]||0)+1});
+  var sorted=Object.entries(groups).sort(function(a,b){return b[1]-a[1]});
+  var barLabel=colForBar==='category'?'分类':colForBar==='person'?'负责人':'责任部门';
+  makeBar(prefix+'-bar','按'+barLabel+'分布',sorted.map(function(s){return s[0]}),sorted.map(function(s){return s[1]}),'#1a73e8');
+
+  renderTable(prefix+'-tbody',data,['status','planDate',colForBar],descKey,'du');
+
+  setActive(prefix+'-filters','active-du');
+  document.querySelectorAll('#'+prefix+'-filters .filter-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var f=this.dataset.filter;
+      var filtered=f==='全部'?data:data.filter(function(d){return d.status===f});
+      renderTable(prefix+'-tbody',filtered,['status','planDate',colForBar],descKey,'du');
+    });
+  });
+}
+
+// ========== 渲染：运营台账各板块 ==========
+function renderJX(filter){
+  var d=filter==='全部'?jxData:jxData.filter(function(r){return r.ns===filter||r.nb===filter});
+  var nsP=jxData.filter(function(r){return r.ns==='通过'}).length;
+  var nbP=jxData.filter(function(r){return r.nb==='通过'}).length;
+  var nsO=jxData.filter(function(r){return r.ns==='不通过'||r.ns==='其他'}).length;
+  var nbO=jxData.filter(function(r){return r.nb==='不通过'||r.nb==='其他'}).length;
+  document.getElementById('jx-total').textContent=jxData.length;
+  document.getElementById('jx-ns').textContent=nsP;
+  document.getElementById('jx-bt').textContent=nbP;
+  document.getElementById('jx-no').textContent=nsO;
+  document.getElementById('jx-bo').textContent=nbO;
+
+  makePie('jx-pie-n','南中心验证结果',[
+    {value:jxData.filter(function(r){return r.ns==='通过'}).length,name:'通过',itemStyle:{color:'#34a853'}},
+    {value:jxData.filter(function(r){return r.ns==='不通过'}).length,name:'不通过',itemStyle:{color:'#ea4335'}},
+    {value:jxData.filter(function(r){return r.ns==='其他'}).length,name:'其他',itemStyle:{color:'#9e9e9e'}}
+  ]);
+  makePie('jx-pie-b','北中心验证结果',[
+    {value:jxData.filter(function(r){return r.nb==='通过'}).length,name:'通过',itemStyle:{color:'#34a853'}},
+    {value:jxData.filter(function(r){return r.nb==='不通过'}).length,name:'不通过',itemStyle:{color:'#ea4335'}},
+    {value:jxData.filter(function(r){return r.nb==='其他'}).length,name:'其他',itemStyle:{color:'#9e9e9e'}}
+  ]);
+  renderTable('jx-tbody',d,['ns','nb'],'desc','yy');
+  document.querySelectorAll('#jx-filters .filter-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){renderJX(this.dataset.filter)});
+  });
+}
+
+function renderQX(filter){
+  var d=filter==='全部'?qxData:qxData.filter(function(r){return r.status===filter});
+  var done=qxData.filter(function(r){return r.status==='已解决'}).length;
+  var pend=qxData.filter(function(r){return r.status==='待发版'}).length;
+  var out=qxData.filter(function(r){return r.status==='需求转出'}).length;
+  document.getElementById('qx-total').textContent=qxData.length;
+  document.getElementById('qx-done').textContent=done;
+  document.getElementById('qx-pend').textContent=pend;
+  document.getElementById('qx-out').textContent=out;
+  makePie('qx-pie','解决状态分布',[
+    {value:qxData.filter(function(r){return r.status==='已解决'}).length,name:'已解决',itemStyle:{color:'#34a853'}},
+    {value:qxData.filter(function(r){return r.status==='待发版'}).length,name:'待发版',itemStyle:{color:'#fbbc04'}},
+    {value:qxData.filter(function(r){return r.status==='排查中'}).length,name:'排查中',itemStyle:{color:'#1a73e8'}},
+    {value:qxData.filter(function(r){return r.status==='需求转出'}).length,name:'需求转出',itemStyle:{color:'#9c27b0'}}
+  ]);
+  var types={};qxData.forEach(function(r){types[r.type]=(types[r.type]||0)+1});
+  var s2=Object.entries(types).sort(function(a,b){return b[1]-a[1]});
+  makeBar('qx-bar','按问题类型分布',s2.map(function(s){return s[0]}),s2.map(function(s){return s[1]}),'#0f9d58');
+  renderTable('qx-tbody',d,['status','channel','type'],'desc','yy');
+  document.querySelectorAll('#qx-filters .filter-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){renderQX(this.dataset.filter)});
+  });
+}
+
+function renderFX(filter){
+  var d=filter==='全部'?fxData:fxData.filter(function(r){return r.status===filter});
+  var done=fxData.filter(function(r){return r.status==='已解决'}).length;
+  var prog=fxData.filter(function(r){return r.status==='进行中'}).length;
+  document.getElementById('fx-total').textContent=fxData.length;
+  document.getElementById('fx-done').textContent=done;
+  document.getElementById('fx-prog').textContent=prog;
+  makePie('fx-pie','解决状态分布',[
+    {value:done,name:'已解决',itemStyle:{color:'#34a853'}},
+    {value:prog,name:'进行中',itemStyle:{color:'#fbbc04'}}
+  ]);
+  var cats={};fxData.forEach(function(r){cats[r.category]=(cats[r.category]||0)+1});
+  var s3=Object.entries(cats).sort(function(a,b){return b[1]-a[1]});
+  makeBar('fx-bar','按服务事件分类',s3.map(function(s){return s[0]}),s3.map(function(s){return s[1]}),'#0f9d58');
+  renderTable('fx-tbody',d,['status','category'],'reason','yy');
+  document.querySelectorAll('#fx-filters .filter-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){renderFX(this.dataset.filter)});
+  });
+}
+
+function renderXQ(filter){
+  var d=filter==='全部'?xqData:xqData.filter(function(r){return r.status===filter});
+  var tech=xqData.filter(function(r){return r.status==='技术评估中'}).length;
+  var doc=xqData.filter(function(r){return r.status==='文档编制'}).length;
+  var dev=xqData.filter(function(r){return r.status==='研发中'}).length;
+  document.getElementById('xq-total').textContent=xqData.length;
+  document.getElementById('xq-tech').textContent=tech;
+  document.getElementById('xq-doc').textContent=doc;
+  document.getElementById('xq-dev').textContent=dev;
+  makePie('xq-pie','完成情况分布',[
+    {value:tech,name:'技术评估中',itemStyle:{color:'#1a73e8'}},
+    {value:doc,name:'文档编制',itemStyle:{color:'#fbbc04'}},
+    {value:dev,name:'研发中',itemStyle:{color:'#9c27b0'}},
+    {value:xqData.filter(function(r){return r.status==='方案审核'}).length,name:'方案审核',itemStyle:{color:'#009688'}}
+  ]);
+  var chs={};xqData.forEach(function(r){chs[r.channel]=(chs[r.channel]||0)+1});
+  var s4=Object.entries(chs).sort(function(a,b){return b[1]-a[1]});
+  makeBar('xq-bar','按渠道分布',s4.map(function(s){return s[0]}),s4.map(function(s){return s[1]}),'#0f9d58');
+  renderTable('xq-tbody',d,['status','channel'],'desc','yy');
+  document.querySelectorAll('#xq-filters .filter-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){renderXQ(this.dataset.filter)});
+  });
+}
+
+function renderZT(filter){
+  var d=filter==='全部'?ztData:ztData.filter(function(r){return r.progress===filter});
+  var done=ztData.filter(function(r){return r.progress==='已完成'}).length;
+  var prog=ztData.filter(function(r){return r.progress==='进行中'}).length;
+  document.getElementById('zt-total').textContent=ztData.length;
+  document.getElementById('zt-done').textContent=done;
+  document.getElementById('zt-prog').textContent=prog;
+  makePie('zt-pie','进度分布',[
+    {value:done,name:'已完成',itemStyle:{color:'#34a853'}},
+    {value:prog,name:'进行中',itemStyle:{color:'#fbbc04'}}
+  ]);
+  var mos={};ztData.forEach(function(r){mos[r.month]=(mos[r.month]||0)+1});
+  var s5=Object.entries(mos).sort(function(a,b){return a[0].localeCompare(b[0])});
+  makeBar('zt-bar','按月份分布',s5.map(function(s){return s[0]}),s5.map(function(s){return s[1]}),'#0f9d58');
+  renderTable('zt-tbody',d,['progress','month'],'detail','yy');
+  document.querySelectorAll('#zt-filters .filter-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){renderZT(this.dataset.filter)});
+  });
+}
+
+// ========== 初始化 ==========
+renderDU('year',yearData,'category','desc');
+renderDU('week',weekData,'person','measures');
+renderDU('month',monthData,'dept','measures');
+renderJX('全部');renderQX('全部');renderFX('全部');renderXQ('全部');renderZT('全部');
+setTimeout(resizeAll,200);
+</script>
+</body>
+</html>
