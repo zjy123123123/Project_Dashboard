@@ -25,7 +25,7 @@
 **4. 访问**
 - 等待约 1-2 分钟
 - 访问地址：`https://你的用户名.github.io/仓库名/`
-- 例如：`https://yanghaodong1224-cloud.github.io/dashboard/`
+- 例如：`https://zjy123123123.github.io/Project_Dashboard/`
 
 ---
 
